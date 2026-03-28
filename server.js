@@ -1,33 +1,20 @@
 const WebSocket = require('ws');
 
-const server = require('http').createServer();
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ port: process.env.PORT || 3000 });
 
-let clients = {};
+wss.on('connection', function connection(ws) {
+  console.log('Client connected');
 
-wss.on('connection', ws => {
+  ws.on('message', function message(data) {
+    console.log('Received:', data);
 
-  ws.on('message', msg => {
-    let data = JSON.parse(msg);
-
-    if (data.type === "join") {
-      clients[data.id] = ws;
-      ws.id = data.id;
-      return;
-    }
-
-    if (data.to && clients[data.to]) {
-      clients[data.to].send(JSON.stringify({
-        ...data,
-        from: ws.id
-      }));
-    }
+    // отправка всем
+    wss.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(data.toString());
+      }
+    });
   });
 
-  ws.on('close', () => {
-    if (ws.id) delete clients[ws.id];
-  });
-
+  ws.send(JSON.stringify({ type: "connected" }));
 });
-
-server.listen(process.env.PORT || 3000);
